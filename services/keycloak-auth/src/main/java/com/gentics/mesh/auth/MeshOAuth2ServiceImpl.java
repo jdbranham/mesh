@@ -144,6 +144,7 @@ public class MeshOAuth2ServiceImpl implements MeshOAuthService {
 	 * @return
 	 */
 	protected MeshAuthUser syncUser(RoutingContext rc, JsonObject token) {
+		System.out.println(token.encodePrettily());
 		String username = token.getString("preferred_username");
 		Objects.requireNonNull(username, "The preferred_username property could not be found in the principle user info.");
 		String currentTokenId = token.getString("jti");
@@ -433,9 +434,14 @@ public class MeshOAuth2ServiceImpl implements MeshOAuthService {
 			String authServerProtocol = authServerUrl.getProtocol();
 			config.put("auth-server-protocol", authServerProtocol);
 
-			JsonObject json = fetchPublicRealmInfo(authServerProtocol, authServerHost, authServerPort, realmName);
+//			JsonObject json = fetchPublicRealmInfo(authServerProtocol, authServerHost, authServerPort, realmName);
+//			String publicKey = json.getString("public_key");
+//			System.out.println("KEY:" + publicKey);
+
+			String publicKey = "key";
+			
 			config.put("auth-server-url", authServerProtocol + "://" + authServerHost + ":" + authServerPort + "/auth");
-			config.put("realm-public-key", json.getString("public_key"));
+			config.put("realm-public-key", publicKey);
 			return config;
 		} catch (Exception e) {
 			throw error(HttpResponseStatus.INTERNAL_SERVER_ERROR, "oauth_config_error", e);
