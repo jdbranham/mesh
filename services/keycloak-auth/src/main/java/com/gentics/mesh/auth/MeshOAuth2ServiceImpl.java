@@ -51,7 +51,6 @@ import io.vertx.ext.auth.User;
 import io.vertx.ext.auth.oauth2.AccessToken;
 import io.vertx.ext.auth.oauth2.OAuth2Auth;
 import io.vertx.ext.auth.oauth2.OAuth2ClientOptions;
-import io.vertx.ext.auth.oauth2.OAuth2FlowType;
 import io.vertx.ext.web.Route;
 import io.vertx.ext.web.RoutingContext;
 import jdk.nashorn.api.scripting.ClassFilter;
@@ -414,17 +413,14 @@ public class MeshOAuth2ServiceImpl implements MeshOAuthService {
 			log.debug("Mesh auth options not specified. Can't setup OAuth2.");
 			return null;
 		}
-		JsonObject config = options.getAuthenticationOptions().getOauth2().getConfig().toJson();
-		if (config == null) {
-			log.debug("OAuth config not specified. Can't setup OAuth2.");
-			return null;
-		}
-
+		JsonObject config = new JsonObject();
 		String realmName = config.getString("realm");
 		Objects.requireNonNull(realmName, "The realm property was not found in the oauth2 config");
 		String url = config.getString("auth-server-url");
 		Objects.requireNonNull(realmName, "The auth-server-url property was not found in the oauth2 config");
 
+		OAuth2Options oauthOptions = authOptions.getOauth2();
+		
 		try {
 			URL authServerUrl = new URL(url);
 			String authServerHost = authServerUrl.getHost();
@@ -438,7 +434,17 @@ public class MeshOAuth2ServiceImpl implements MeshOAuthService {
 //			String publicKey = json.getString("public_key");
 //			System.out.println("KEY:" + publicKey);
 
-			String publicKey = "key";
+			String publicKey = oauthOptions.getPublicKey();
+			if(publicKey==null) {
+				String provider = oauthOptions.getProvider();
+				switch(provider) {
+				case "keycloak":
+					publicKey = fetchPublicRealmInfo(protocol, host, port, realmName); 
+					break;
+				default:
+					log.error("Unknown provider {" + provider +"}");
+				}
+			}
 			
 			config.put("auth-server-url", authServerProtocol + "://" + authServerHost + ":" + authServerPort + "/auth");
 			config.put("realm-public-key", publicKey);

@@ -514,15 +514,16 @@ public class MeshTestContext extends TestWatcher {
 			OAuth2Options oauth2Options = meshOptions.getAuthenticationOptions().getOauth2();
 			oauth2Options.setEnabled(true);
 
-			OAuth2ServerConfig realmConfig = new OAuth2ServerConfig();
-			realmConfig.setAuthServerUrl("http://" + keycloak.getHost() + ":" + keycloak.getMappedPort(8080) + "/auth");
-			realmConfig.setRealm("master-test");
-			realmConfig.setSslRequired("external");
-			realmConfig.setResource("mesh");
-			realmConfig.setConfidentialPort(0);
-			realmConfig.addCredential("secret", "9b65c378-5b4c-4e25-b5a1-a53a381b5fb4");
+//			OAuth2ServerConfig realmConfig = new OAuth2ServerConfig();
+//			realmConfig.setAuthServerUrl("http://" + keycloak.getHost() + ":" + keycloak.getMappedPort(8080) + "/auth");
+//			realmConfig.setRealm("master-test");
+//			realmConfig.setSslRequired("external");
+//			realmConfig.setResource("mesh");
+//			realmConfig.setConfidentialPort(0);
+//			realmConfig.addCredential("secret", "9b65c378-5b4c-4e25-b5a1-a53a381b5fb4");
 
-			oauth2Options.setConfig(realmConfig);
+			oauth2Options.setProvider("keycloak");
+//			oauth2Options.setConfig(realmConfig);
 		}
 		settings.optionChanger().changer.accept(meshOptions);
 		optionChanger.accept(meshOptions);

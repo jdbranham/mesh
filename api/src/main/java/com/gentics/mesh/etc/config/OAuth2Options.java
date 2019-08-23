@@ -9,18 +9,18 @@ public class OAuth2Options implements Option {
 
 	public static final String MESH_AUTH_OAUTH2_ENABLED_ENV = "MESH_AUTH_OAUTH2_ENABLED";
 
-	public static final String MESH_AUTH_OAUTH2_MAPPER_SCRIPT_PATH_ENV = "MESH_AUTH_OAUTH2_MAPPER_SCRIPT_PATH";
-
-	public static final String MESH_AUTH_OAUTH2_MAPPER_SCRIPT_DEV_MODE_ENV = "MESH_AUTH_OAUTH2_MAPPER_SCRIPT_DEV_MODE";
-
 	@JsonProperty(required = false)
 	@JsonPropertyDescription("Flag which indicates whether the OAuth2 support should be enabled.")
 	@EnvironmentVariable(name = MESH_AUTH_OAUTH2_ENABLED_ENV, description = "Override the configured OAuth2 enabled flag.")
 	private boolean enabled = false;
 
 	@JsonProperty(required = false)
-	@JsonPropertyDescription("Property which contains the OAuth2 configuration settings like realm name, auth server url.")
-	private OAuth2ServerConfig config = null;
+	@JsonPropertyDescription("Name of the oauth provider.")
+	private String provider;
+
+	@JsonProperty(required = false)
+	@JsonPropertyDescription("X509 formatted public key to be used to verify the JWT.")
+	private String publicKey;
 
 	public boolean isEnabled() {
 		return enabled;
@@ -31,12 +31,21 @@ public class OAuth2Options implements Option {
 		return this;
 	}
 
-	public OAuth2ServerConfig getConfig() {
-		return config;
+	public String getPublicKey() {
+		return publicKey;
 	}
 
-	public OAuth2Options setConfig(OAuth2ServerConfig config) {
-		this.config = config;
+	public OAuth2Options setPublicKey(String publicKey) {
+		this.publicKey = publicKey;
+		return this;
+	}
+
+	public String getProvider() {
+		return provider;
+	}
+
+	public OAuth2Options setProvider(String provider) {
+		this.provider = provider;
 		return this;
 	}
 
