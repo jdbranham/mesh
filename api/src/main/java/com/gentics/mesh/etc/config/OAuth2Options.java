@@ -22,6 +22,10 @@ public class OAuth2Options implements Option {
 	@JsonPropertyDescription("X509 formatted public key to be used to verify the JWT.")
 	private String publicKey;
 
+	private String realm;
+
+	private String url;
+
 	public boolean isEnabled() {
 		return enabled;
 	}
@@ -47,6 +51,22 @@ public class OAuth2Options implements Option {
 	public OAuth2Options setProvider(String provider) {
 		this.provider = provider;
 		return this;
+	}
+	
+	public String getRealm() {
+		return realm;
+	}
+	
+	public void setRealm(String realm) {
+		this.realm = realm;
+	}
+	
+	public String getUrl() {
+		return url;
+	}
+	
+	public void setUrl(String url) {
+		this.url = url;
 	}
 
 }

@@ -48,7 +48,6 @@ import com.gentics.mesh.etc.config.HttpServerConfig;
 import com.gentics.mesh.etc.config.MeshOptions;
 import com.gentics.mesh.etc.config.MonitoringConfig;
 import com.gentics.mesh.etc.config.OAuth2Options;
-import com.gentics.mesh.etc.config.OAuth2ServerConfig;
 import com.gentics.mesh.etc.config.search.ElasticSearchOptions;
 import com.gentics.mesh.graphdb.spi.Database;
 import com.gentics.mesh.rest.client.MeshRestClient;
@@ -514,9 +513,8 @@ public class MeshTestContext extends TestWatcher {
 			OAuth2Options oauth2Options = meshOptions.getAuthenticationOptions().getOauth2();
 			oauth2Options.setEnabled(true);
 
-//			OAuth2ServerConfig realmConfig = new OAuth2ServerConfig();
-//			realmConfig.setAuthServerUrl("http://" + keycloak.getHost() + ":" + keycloak.getMappedPort(8080) + "/auth");
-//			realmConfig.setRealm("master-test");
+			oauth2Options.setRealm("master-test");
+			oauth2Options.setUrl("http://" + keycloak.getHost() + ":" + keycloak.getMappedPort(8080) + "/auth");
 //			realmConfig.setSslRequired("external");
 //			realmConfig.setResource("mesh");
 //			realmConfig.setConfidentialPort(0);

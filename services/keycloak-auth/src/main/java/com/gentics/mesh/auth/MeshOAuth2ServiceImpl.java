@@ -48,12 +48,15 @@ import io.vertx.core.logging.Logger;
 import io.vertx.core.logging.LoggerFactory;
 import io.vertx.ext.auth.PubSecKeyOptions;
 import io.vertx.ext.auth.User;
+import io.vertx.ext.auth.jwt.JWTAuth;
+import io.vertx.ext.auth.jwt.JWTAuthOptions;
+import io.vertx.ext.auth.jwt.impl.JWTUser;
 import io.vertx.ext.auth.oauth2.AccessToken;
-import io.vertx.ext.auth.oauth2.OAuth2Auth;
 import io.vertx.ext.auth.oauth2.OAuth2ClientOptions;
+import io.vertx.ext.jwt.JWT;
 import io.vertx.ext.web.Route;
 import io.vertx.ext.web.RoutingContext;
-import jdk.nashorn.api.scripting.ClassFilter;
+import io.vertx.ext.web.handler.JWTAuthHandler;
 import jdk.nashorn.api.scripting.NashornScriptEngineFactory;
 import okhttp3.OkHttpClient;
 import okhttp3.OkHttpClient.Builder;
@@ -66,18 +69,18 @@ public class MeshOAuth2ServiceImpl implements MeshOAuthService {
 
 	private static final Logger log = LoggerFactory.getLogger(MeshOAuth2ServiceImpl.class);
 
+	private final JWT jwt = new JWT();
+
 	/**
 	 * Cache the token id which was last used by an user.
 	 */
 	public static final Cache<String, String> TOKEN_ID_LOG = Caffeine.newBuilder().maximumSize(20_000).expireAfterWrite(24, TimeUnit.HOURS).build();
 
 	protected AuthServicePluginRegistry authPluginRegistry;
-	protected MeshOAuth2AuthHandlerImpl oauth2Handler;
 	protected NashornScriptEngineFactory factory = new NashornScriptEngineFactory();
-	protected OAuth2Options options;
-	protected OAuth2Auth oauth2Provider;
 	protected Database db;
 	protected BootstrapInitializer boot;
+	protected JWTAuthHandler handler;
 
 	private final Provider<EventQueueBatch> batchProvider;
 
@@ -88,48 +91,45 @@ public class MeshOAuth2ServiceImpl implements MeshOAuthService {
 		this.boot = boot;
 		this.batchProvider = batchProvider;
 		this.authPluginRegistry = authPluginRegistry;
-		this.options = meshOptions.getAuthenticationOptions().getOauth2();
+		OAuth2Options options = meshOptions.getAuthenticationOptions().getOauth2();
 		if (options == null || !options.isEnabled()) {
 			return;
 		}
 
+		JWTAuthOptions jwtOptions = new JWTAuthOptions();
 		JsonObject config = loadRealmInfo(vertx, meshOptions);
-		OAuth2ClientOptions oauth2ClientOptions = new OAuth2ClientOptions();
 		if (config.containsKey("realm-public-key")) {
-			oauth2ClientOptions.setClientID(config.getString("resource"));
-			oauth2ClientOptions.addPubSecKey(new PubSecKeyOptions()
-				.setAlgorithm("RS256")
-				.setPublicKey(config.getString("realm-public-key")));
+
+			jwtOptions.addPubSecKey(new PubSecKeyOptions().setAlgorithm("RS256").setPublicKey(config.getString("realm-public-key")));
 		}
 
-		this.oauth2Provider = OAuth2Auth.create(vertx, oauth2ClientOptions);
-		this.oauth2Handler = new MeshOAuth2AuthHandlerImpl(oauth2Provider);
+		JWTAuth authProvider = JWTAuth.create(vertx, jwtOptions);
+		handler = JWTAuthHandler.create(authProvider);
 
 	}
 
 	@Override
 	public void secure(Route route) {
-		route.handler(oauth2Handler);
+		route.handler(handler);
 
 		// Check whether the oauth handler was successful and convert the user to a mesh user.
 		route.handler(rc -> {
 			User user = rc.user();
-			if (user instanceof AccessToken) {
-				// FIXME - Workaround for Vert.x bug - https://github.com/vert-x3/vertx-auth/issues/216
-				AccessToken token = (AccessToken) user;
-				if (token.accessToken() == null) {
-					rc.fail(401);
-					return;
-				} else {
-					List<AuthServicePlugin> plugins = authPluginRegistry.getPlugins();
-					for (AuthServicePlugin plugin : plugins) {
-						if (!plugin.acceptToken(rc.request(), token.accessToken())) {
-							rc.fail(401);
-							return;
-						}
+			if (user instanceof JWTUser) {
+				JWTUser token = (JWTUser) user;
+
+				List<AuthServicePlugin> plugins = authPluginRegistry.getPlugins();
+				for (AuthServicePlugin plugin : plugins) {
+					if (!plugin.acceptToken(rc.request(), token.principal())) {
+						rc.fail(401);
+						return;
 					}
-					rc.setUser(syncUser(rc, token.accessToken()));
 				}
+				rc.setUser(syncUser(rc, token.principal()));
+
+			} else {
+				rc.fail(401);
+				return;
 			}
 			rc.next();
 		});
@@ -384,20 +384,6 @@ public class MeshOAuth2ServiceImpl implements MeshOAuthService {
 
 	}
 
-	public OAuth2Auth getOauth2Provider() {
-		return oauth2Provider;
-	}
-
-	/**
-	 * Sandbox classfilter that filters all classes
-	 */
-	protected static class Sandbox implements ClassFilter {
-		@Override
-		public boolean exposeToScripts(String className) {
-			return false;
-		}
-	}
-
 	/**
 	 * Load the settings and enhance them with the public realm information from the auth server.
 	 * 
@@ -414,39 +400,35 @@ public class MeshOAuth2ServiceImpl implements MeshOAuthService {
 			return null;
 		}
 		JsonObject config = new JsonObject();
+		config.put("realm", authOptions.getOauth2().getRealm());
+		config.put("auth-server-url", authOptions.getOauth2().getUrl());
+
 		String realmName = config.getString("realm");
 		Objects.requireNonNull(realmName, "The realm property was not found in the oauth2 config");
 		String url = config.getString("auth-server-url");
 		Objects.requireNonNull(realmName, "The auth-server-url property was not found in the oauth2 config");
 
 		OAuth2Options oauthOptions = authOptions.getOauth2();
-		
+
 		try {
 			URL authServerUrl = new URL(url);
 			String authServerHost = authServerUrl.getHost();
-			config.put("auth-server-host", authServerHost);
 			int authServerPort = authServerUrl.getPort();
-			config.put("auth-server-port", authServerPort);
 			String authServerProtocol = authServerUrl.getProtocol();
-			config.put("auth-server-protocol", authServerProtocol);
-
-//			JsonObject json = fetchPublicRealmInfo(authServerProtocol, authServerHost, authServerPort, realmName);
-//			String publicKey = json.getString("public_key");
-//			System.out.println("KEY:" + publicKey);
 
 			String publicKey = oauthOptions.getPublicKey();
-			if(publicKey==null) {
+			if (publicKey == null) {
 				String provider = oauthOptions.getProvider();
-				switch(provider) {
+				switch (provider) {
 				case "keycloak":
-					publicKey = fetchPublicRealmInfo(protocol, host, port, realmName); 
+					JsonObject json = fetchPublicRealmInfo(authServerProtocol, authServerHost, authServerPort, realmName);
+					publicKey = json.getString("public_key");
 					break;
 				default:
-					log.error("Unknown provider {" + provider +"}");
+					log.error("Could not load public key. Cause: Unsupported provider {" + provider + "}");
 				}
 			}
-			
-			config.put("auth-server-url", authServerProtocol + "://" + authServerHost + ":" + authServerPort + "/auth");
+			System.out.println("KEY:" + publicKey);
 			config.put("realm-public-key", publicKey);
 			return config;
 		} catch (Exception e) {
