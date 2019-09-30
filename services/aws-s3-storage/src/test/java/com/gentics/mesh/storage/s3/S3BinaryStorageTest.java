@@ -51,7 +51,7 @@ public class S3BinaryStorageTest extends AbstractMinioTest {
 		BinaryGraphField mockField = Mockito.mock(BinaryGraphField.class);
 		Mockito.when(mockField.getBinary()).thenReturn(binary);
 
-		// Check initialy - file does not exists
+		// Check initially - file does not exists
 		assertFalse(storage.exists(mockField).blockingGet());
 
 		// Upload in temp
