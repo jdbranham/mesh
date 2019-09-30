@@ -35,6 +35,7 @@ import software.amazon.awssdk.auth.credentials.AwsCredentials;
 import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
 import software.amazon.awssdk.core.async.AsyncRequestBody;
 import software.amazon.awssdk.core.async.AsyncResponseTransformer;
+import software.amazon.awssdk.http.HttpStatusCode;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.s3.S3AsyncClient;
 import software.amazon.awssdk.services.s3.model.CopyObjectRequest;
@@ -48,6 +49,7 @@ import software.amazon.awssdk.services.s3.model.HeadObjectRequest;
 import software.amazon.awssdk.services.s3.model.NoSuchBucketException;
 import software.amazon.awssdk.services.s3.model.NoSuchKeyException;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
+import software.amazon.awssdk.services.s3.model.S3Exception;
 
 @Singleton
 public class S3BinaryStorage extends AbstractBinaryStorage {
@@ -91,7 +93,7 @@ public class S3BinaryStorage extends AbstractBinaryStorage {
 
 		Single<HeadBucketResponse> bucketHead = SingleInterop.fromFuture(client.headBucket(headRequest));
 		bucketHead.map(e -> e != null).onErrorResumeNext(e -> {
-			if (e instanceof CompletionException && e.getCause() != null && e.getCause() instanceof NoSuchBucketException) {
+			if (e instanceof CompletionException && e.getCause() != null && isS3ObjectNotFound(e.getCause()) ) {
 				return SingleInterop.fromFuture(client.createBucket(createRequest)).map(r -> r != null);
 			} else {
 				return Single.error(e);
@@ -113,7 +115,7 @@ public class S3BinaryStorage extends AbstractBinaryStorage {
 			.build();
 
 		return SingleInterop.fromFuture(client.headObject(request)).map(r -> r != null).onErrorResumeNext(e -> {
-			if (e instanceof CompletionException && e.getCause() != null && e.getCause() instanceof NoSuchKeyException) {
+			if (e instanceof CompletionException && e.getCause() != null && isS3ObjectNotFound(e.getCause())) {
 				return Single.just(false);
 			} else {
 				return Single.error(e);
@@ -218,5 +220,11 @@ public class S3BinaryStorage extends AbstractBinaryStorage {
 	@Override
 	public InputStream openBlockingStream(String uuid) throws IOException {
 		return null;
+	}
+	
+	private boolean isS3ObjectNotFound(Throwable e) {
+		return e instanceof S3Exception && (((S3Exception)e).statusCode() == HttpStatusCode.NOT_FOUND)
+				|| e instanceof NoSuchBucketException
+				|| e instanceof NoSuchKeyException;
 	}
 }
