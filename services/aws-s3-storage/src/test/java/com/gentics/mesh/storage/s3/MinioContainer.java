@@ -8,7 +8,7 @@ import org.testcontainers.containers.wait.strategy.HttpWaitStrategy;
 
 public class MinioContainer extends GenericContainer<MinioContainer> {
 
-	public static final String VERSION = "7268-b336f52";
+	public static final String VERSION = "latest";
 
 	public static final String MINIO_ACCESS_KEY = "minio";
 
@@ -20,7 +20,7 @@ public class MinioContainer extends GenericContainer<MinioContainer> {
 
 	@Override
 	protected void configure() {
-		withCommand("server /data");
+		withCommand("server --compat /data");
 		withEnv("MINIO_ACCESS_KEY", MINIO_ACCESS_KEY);
 		withEnv("MINIO_SECRET_KEY", MINIO_SECRET_KEY);
 		withExposedPorts(9000);
